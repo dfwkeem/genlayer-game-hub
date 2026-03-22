@@ -481,7 +481,7 @@ function App(){
 
       const word = CAR_WORDS[Math.floor(Math.random() * CAR_WORDS.length)];
       let collected = "";
-      let speed = 3;
+      let speed = 2;
       let slowTimer = 0;
       let score = 0;
       let lives = 3;
@@ -579,7 +579,7 @@ function App(){
 
         // Scrolling center stripes
         stripes.forEach(s => {
-          s.y += speed * 0.6;
+          s.y += speed * 2.5;
           if (s.y > H + 20) s.y -= (H + 40);
           ctx.fillStyle = "rgba(255,255,255,0.15)";
           ctx.fillRect(W/2 - 3, s.y, 6, H/6);
@@ -599,7 +599,7 @@ function App(){
         // Update + draw letters
         for (let i = letterObjs.length - 1; i >= 0; i--) {
           const l = letterObjs[i];
-          l.y += l.speed + speed * 0.3;
+          l.y += l.speed * (speed / 2);
 
           // Hit detection
           const dx = Math.abs(car.x - l.x);
@@ -612,9 +612,9 @@ function App(){
                 score += 10;
                 const ni = needed.indexOf(l.char);
                 if (ni >= 0) needed.splice(ni, 1);
-                // Speed boost on correct letter — gets faster as you collect more
-                speed = Math.min(7, speed + 0.5);
-                car.speed = Math.min(8, car.speed + 0.3);
+                // Big speed boost — very noticeable each correct letter
+                speed = Math.min(14, speed + 2.5);
+                car.speed = Math.min(14, car.speed + 1.5);
               }
             } else {
               // Hit red — reset ALL collected progress + speed back to base
@@ -622,7 +622,7 @@ function App(){
                 collected = "";
                 needed.length = 0;
                 needed.push(...word.split(""));
-                speed = 3;
+                speed = 2;
                 car.speed = 5;
               }
               slowTimer = 90;
@@ -694,6 +694,20 @@ function App(){
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
           ctx.fillText("⚠ SLOWED! Progress reset!", W/2, H - 30);
+        } else {
+          // Show speed level
+          const bars = Math.min(8, Math.floor((speed - 2) / 1.5));
+          ctx.fillStyle = "rgba(0,0,0,0.4)";
+          ctx.fillRect(W - 70, H - 28, 60, 16);
+          for(let b = 0; b < 8; b++){
+            ctx.fillStyle = b < bars ? (bars > 5 ? "#f87171" : bars > 3 ? "#facc15" : "#4ade80") : "rgba(255,255,255,0.1)";
+            ctx.fillRect(W - 68 + b * 7, H - 26, 5, 12);
+          }
+          ctx.fillStyle = "rgba(255,255,255,0.5)";
+          ctx.font = "9px sans-serif";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+          ctx.fillText("SPD", W - 68, H - 36);
         }
 
         // Win check
