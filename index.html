@@ -7,11 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{min-height:100%;background:#0c0a1e;overflow-x:hidden}
-    #root{min-height:100vh}
-  </style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}html,body{min-height:100%;background:#0c0a1e;overflow-x:hidden}#root{min-height:100vh}</style>
 </head>
 <body>
   <div id="root"></div>
@@ -37,7 +33,7 @@ const QCOUNT   = {easy:20,medium:35,hard:55};
 
 function shuffleArr(a){const r=[…a];for(let i=r.length-1;i>0;i–){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 function fmt(s){return Math.floor(s/60)+”:”+String(s%60).padStart(2,“0”);}
-function doScramble(w){const a=w.split(””);for(let i=a.length-1;i>0;i–){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a.join(””)===w?doScramble(w):a.join(””);}
+function doScramble(w,d=0){const a=w.split(””);for(let i=a.length-1;i>0;i–){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}const r=a.join(””);return r===w?(d>15?w.split(””).reverse().join(””):doScramble(w,d+1)):r;}
 
 const SCRAMBLE_WORDS = [
 {word:“VALIDATOR”,hint:“Stakes tokens and votes on contract results”},
@@ -270,7 +266,7 @@ const prevC=pr.pieces.filter(p=>p.currentPos===p.correctPos).length;
 const newC=ps2.filter(p=>p.correct).length,total=ps2.length;
 if(newC>prevC){if(newC===total-1)showToast(“⭐ One piece left!”,“gold”);else if(newC===Math.floor(total/2))showToast(“🔥 Halfway there!”,“gold”);else showToast(“✓ Piece locked in!”);}
 pr.pieces=ps2;setPPieces([…ps2]);setPMoves(m=>m+1);
-if(ps2.every(p=>p.correct)){clearInterval(pTimerRef.current);const el=Math.floor((Date.now()-pr.startTime)/1000);setTimeout(()=>{boom(true);setPWTime(fmt(el));setPWMoves(m=>m+1);setPScr(“win”);},400);}
+if(ps2.every(p=>p.correct)){clearInterval(pTimerRef.current);const el=Math.floor((Date.now()-pr.startTime)/1000);const finalMoves=pMoves+1;setTimeout(()=>{boom(true);setPWTime(fmt(el));setPWMoves(finalMoves);setPScr(“win”);},400);}
 },[showToast]);
 
 const getSlot=(cx,cy)=>{if(!boardRef.current)return -1;const br=boardRef.current.getBoundingClientRect();const{bs,ps,gs}=pRef.current;const lx=cx-br.left,ly=cy-br.top;if(lx<0||ly<0||lx>bs||ly>bs)return -1;const col=Math.floor(lx/ps),row=Math.floor(ly/ps);if(col>=gs||row>=gs)return -1;return row*gs+col;};
@@ -440,7 +436,12 @@ const w=HANGMAN_WORDS[Math.floor(Math.random()*HANGMAN_WORDS.length)];
 setHmWord(w);setHmGuessed([]);setHmWrong(0);setHmFlash(null);setHmScore(0);setHmRound(0);
 },[]);
 
-const nextHmWord=()=>{const w=HANGMAN_WORDS[Math.floor(Math.random()*HANGMAN_WORDS.length)];setHmWord(w);setHmGuessed([]);setHmWrong(0);setHmFlash(null);};
+const nextHmWord=()=>{
+let w;
+do { w=HANGMAN_WORDS[Math.floor(Math.random()*HANGMAN_WORDS.length)]; }
+while(w.word===hmWord.word && HANGMAN_WORDS.length > 1);
+setHmWord(w);setHmGuessed([]);setHmWrong(0);setHmFlash(null);
+};
 
 const guessLetter=useCallback((letter)=>{
 if(hmGuessed.includes(letter)||hmFlash)return;
@@ -730,7 +731,12 @@ const H = canvas.height = 520;
 
 const stopCarGame = useCallback(() => {
 cancelAnimationFrame(carAnimRef.current);
+// Clean up any lingering key listeners by dispatching keyup for all keys
+[“ArrowLeft”,“ArrowRight”,“a”,“A”,“d”,“D”].forEach(k =>
+window.dispatchEvent(new KeyboardEvent(“keyup”, {key: k}))
+);
 setCarScr(“menu”);
+setScreen(“menu”);
 }, []);
 
 useEffect(()=>()=>{
