@@ -316,25 +316,24 @@ function App(){
   const mTimerRef=useRef(null),mStartRef=useRef(null),mMovesRef=useRef(0);
 
   const startMemory=useCallback(()=>{
-    const gs=mGrid,pairCount=(4*gs)/2;
-    // 6 mascots × 2 variants (A/B) = 12 unique pairs — full image shown, variant indicated by badge color
-    const PAIR_DEFS = [
-      {key:"action_a", src:IMGS.action, label:"Action",  badge:"#60a5fa"},
-      {key:"relax_a",  src:IMGS.relax,  label:"Relax",   badge:"#60a5fa"},
-      {key:"duo_a",    src:IMGS.duo,    label:"Duo",     badge:"#60a5fa"},
-      {key:"heart_a",  src:IMGS.heart,  label:"Heart",   badge:"#60a5fa"},
-      {key:"burger_a", src:IMGS.burger, label:"Burger",  badge:"#60a5fa"},
-      {key:"stonks_a", src:IMGS.stonks, label:"Stonks",  badge:"#60a5fa"},
-      {key:"angel_a",  src:IMGS.angel,  label:"Angel",   badge:"#60a5fa"},
-      {key:"glitch_a", src:IMGS.glitch, label:"Glitch",  badge:"#60a5fa"},
+    const gs=mGrid, pairCount=(4*gs)/2;
+    const ALL_PAIRS = [
+      {label:"Action",  src:IMGS.action},
+      {label:"Relax",   src:IMGS.relax},
+      {label:"Duo",     src:IMGS.duo},
+      {label:"Heart",   src:IMGS.heart},
+      {label:"Burger",  src:IMGS.burger},
+      {label:"Stonks",  src:IMGS.stonks},
+      {label:"Angel",   src:IMGS.angel},
+      {label:"Glitch",  src:IMGS.glitch},
     ];
-    // Each card appears twice in the grid — that's the pair
-    const pool = shuffleArr([...PAIR_DEFS, ...PAIR_DEFS]).slice(0, pairCount * 2);
-    // Assign unique keys to duplicates
-    let countMap = {};
-    pool.forEach(p => { countMap[p.key] = (countMap[p.key]||0) + 1; p.key = p.key + "_" + countMap[p.key]; });
-    const pairs=shuffleArr([...pool,...pool.map(p=>({...p,key:p.key+"_b"}))]);
-    setMCards(shuffleArr(pool).map((p,i)=>({...p,idx:i,flipped:false,matched:false})));
+    // Pick pairCount unique mascots, duplicate each to make pairs, shuffle
+    const chosen = shuffleArr([...ALL_PAIRS]).slice(0, pairCount);
+    const deck = shuffleArr([
+      ...chosen.map((p,i) => ({...p, uid:`${p.label}_1`, pairId:i, flipped:false, matched:false})),
+      ...chosen.map((p,i) => ({...p, uid:`${p.label}_2`, pairId:i, flipped:false, matched:false})),
+    ]);
+    setMCards(deck);
     setMFlipped([]);setMMoves(0);mMovesRef.current=0;setMElapsed(0);setMLocked(false);
     clearInterval(mTimerRef.current);mStartRef.current=Date.now();
     mTimerRef.current=setInterval(()=>setMElapsed(Math.floor((Date.now()-mStartRef.current)/1000)),500);
@@ -342,23 +341,45 @@ function App(){
   },[mGrid]);
 
   const flipCard=useCallback((idx)=>{
-    setMCards(prev=>{if(prev[idx].flipped||prev[idx].matched)return prev;return prev.map((c,i)=>i===idx?{...c,flipped:true}:c);});
+    setMCards(prev=>{
+      if(prev[idx].flipped||prev[idx].matched) return prev;
+      return prev.map((c,i)=>i===idx?{...c,flipped:true}:c);
+    });
     setMFlipped(prev=>{
       const next=[...prev,idx];
       if(next.length===2){
         setMLocked(true);
-        const newMoves=mMovesRef.current+1;mMovesRef.current=newMoves;setMMoves(newMoves);
-        setMCards(cards=>{
-          const[a,b]=next;const ca=cards[a],cb=cards[b];
-          const match = ca.label===cb.label && ca.key!==cb.key;
-          if(match){
-            const updated=cards.map((c,i)=>(i===a||i===b)?{...c,matched:true}:c);
-            const mc=updated.filter(c=>c.matched).length;
-            if(mc===updated.length){clearInterval(mTimerRef.current);const el=Math.floor((Date.now()-mStartRef.current)/1000);setTimeout(()=>{boom(true);setMWin({moves:newMoves,time:fmt(el)});setMScr("win");},500);}
-            setTimeout(()=>{setMFlipped([]);setMLocked(false);},400);
-            return updated;
-          }else{setTimeout(()=>{setMCards(c2=>c2.map((c,i)=>(i===a||i===b)?{...c,flipped:false}:c));setMFlipped([]);setMLocked(false);},900);return cards;}
-        });
+        const newMoves=mMovesRef.current+1;
+        mMovesRef.current=newMoves;
+        setMMoves(newMoves);
+        // Use setTimeout so setMCards above has flushed before we read state
+        setTimeout(()=>{
+          setMCards(cards=>{
+            const [a,b]=next;
+            const ca=cards[a], cb=cards[b];
+            if(!ca||!cb) return cards;
+            const isMatch = ca.pairId===cb.pairId && ca.uid!==cb.uid;
+            if(isMatch){
+              const updated=cards.map((c,i)=>(i===a||i===b)?{...c,matched:true,flipped:true}:c);
+              const mc=updated.filter(c=>c.matched).length;
+              if(mc===updated.length){
+                clearInterval(mTimerRef.current);
+                const el=Math.floor((Date.now()-mStartRef.current)/1000);
+                setTimeout(()=>{boom(true);setMWin({moves:newMoves,time:fmt(el)});setMScr("win");},500);
+              }
+              setMFlipped([]);
+              setMLocked(false);
+              return updated;
+            } else {
+              setTimeout(()=>{
+                setMCards(c2=>c2.map((c,i)=>(i===a||i===b)?{...c,flipped:false}:c));
+                setMFlipped([]);
+                setMLocked(false);
+              },850);
+              return cards;
+            }
+          });
+        },50);
         return next;
       }
       return next;
@@ -376,10 +397,11 @@ function App(){
   const [wsHint,setWsHint]=useState(false);
   const [wsScr,setWsScr]=useState("game");
   const wsTimerRef=useRef(null);
-  const wsRef=useRef({timeLeft:30,running:false,hint:false,idx:0,queue:[]});
+  const wsRef=useRef({timeLeft:30,running:false,hint:false,idx:0,queue:[],scrambled:""});
 
   const wsLoadWord=useCallback((idx,queue)=>{
     wsRef.current.idx=idx;wsRef.current.queue=queue;wsRef.current.timeLeft=30;wsRef.current.running=true;wsRef.current.hint=false;
+    wsRef.current.scrambled = doScramble(queue[idx].word);
     setWsIdx(idx);setWsInput("");setWsFlash(null);setWsHint(false);setWsTLeft(30);
     clearInterval(wsTimerRef.current);
     wsTimerRef.current=setInterval(()=>{
@@ -454,8 +476,8 @@ function App(){
       const canvas = carCanvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
-      const W = canvas.width = canvas.offsetWidth;
-      const H = canvas.height = canvas.offsetHeight;
+      const W = canvas.width = 480;
+      const H = canvas.height = 520;
 
       const word = CAR_WORDS[Math.floor(Math.random() * CAR_WORDS.length)];
       let collected = "";
@@ -590,14 +612,18 @@ function App(){
                 score += 10;
                 const ni = needed.indexOf(l.char);
                 if (ni >= 0) needed.splice(ni, 1);
+                // Speed boost on correct letter — gets faster as you collect more
+                speed = Math.min(7, speed + 0.5);
+                car.speed = Math.min(8, car.speed + 0.3);
               }
             } else {
-              // Hit red — reset ALL collected progress
+              // Hit red — reset ALL collected progress + speed back to base
               if (collected.length > 0) {
                 collected = "";
-                // Rebuild needed from scratch
                 needed.length = 0;
                 needed.push(...word.split(""));
+                speed = 3;
+                car.speed = 5;
               }
               slowTimer = 90;
             }
@@ -684,7 +710,7 @@ function App(){
       };
 
       loop();
-    }, 100);
+    }, 200);
   }, []);
 
   const stopCarGame = useCallback(() => {
@@ -705,7 +731,7 @@ function App(){
   const tPct=(pTimeLeft/MAX_TIME[gridSize])*100,tCol=tPct>60?"#4ade80":tPct>30?"#facc15":"#f87171";
   const curQ=qList[qIdx];
   const wsCurrentWord=wsQueue[wsIdx];
-  const wsScrambled=wsCurrentWord?doScramble(wsCurrentWord.word):"";
+  const wsScrambled=wsRef.current.scrambled||"";
   const wsTpct=(wsTimeLeft/30)*100,wsTcol=wsTpct>60?"#4ade80":wsTpct>30?"#facc15":"#f87171";
   const ALPHA="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const hmDisplay=hmWord.word.split("").map(l=>hmGuessed.includes(l)?l:"_");
@@ -916,7 +942,7 @@ function App(){
                 {mCards.map((c,i)=>{
                   const flipped=c.flipped||c.matched;
                   return (
-                    <div key={i} onClick={()=>!mLocked&&!flipped&&flipCard(i)} style={{aspectRatio:"1",borderRadius:10,cursor:flipped?"default":"pointer",position:"relative",overflow:"hidden",border:`2px solid ${c.matched?"#4ade80":flipped?c.badge:"rgba(255,255,255,0.08)"}`,boxShadow:c.matched?`0 0 10px ${c.badge}66`:"none",background:"rgba(255,255,255,0.02)",transition:"border-color 0.3s"}}>
+                    <div key={c.uid} onClick={()=>!mLocked&&!flipped&&flipCard(i)} style={{aspectRatio:"1",borderRadius:10,cursor:flipped?"default":"pointer",position:"relative",overflow:"hidden",border:`2px solid ${c.matched?"#4ade80":flipped?"rgba(251,146,60,0.5)":"rgba(255,255,255,0.08)"}`,boxShadow:c.matched?"0 0 12px rgba(74,222,128,0.4)":"none",background:"rgba(255,255,255,0.02)",transition:"border-color 0.3s"}}>
                       {flipped ? (
                         <>
                           <img src={c.src} alt={c.label} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
@@ -1071,7 +1097,7 @@ function App(){
                 Collect letters in order to spell the word! 🏎️
               </div>
               <div style={{position:"relative",width:"100%",maxWidth:480}}>
-                <canvas ref={carCanvasRef} style={{width:"100%",height:520,borderRadius:16,display:"block",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}/>
+                <canvas ref={carCanvasRef} width="480" height="520" style={{width:"100%",height:"auto",borderRadius:16,display:"block",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}/>
               </div>
               {/* Mobile controls */}
               <div style={{display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:480}}>
