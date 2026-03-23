@@ -482,14 +482,14 @@ function App(){
 
       const word = CAR_WORDS[Math.floor(Math.random() * CAR_WORDS.length)];
       let collected = "";
-      let speed = 2;
+      let speed = 1.2;
       let slowTimer = 0;
       let score = 0;
       let lives = 3;
       let done = false;
 
       // Car
-      const car = { x: W / 2, y: H - 90, w: 46, h: 70, speed: 5 };
+      const car = { x: W / 2, y: H - 90, w: 46, h: 70, speed: 3 };
       const keys = {};
 
       // Road stripes
@@ -580,7 +580,7 @@ function App(){
 
         // Scrolling center stripes
         stripes.forEach(s => {
-          s.y += speed * 2.5;
+          s.y += speed * 1.5;
           if (s.y > H + 20) s.y -= (H + 40);
           ctx.fillStyle = "rgba(255,255,255,0.15)";
           ctx.fillRect(W/2 - 3, s.y, 6, H/6);
@@ -614,8 +614,8 @@ function App(){
                 const ni = needed.indexOf(l.char);
                 if (ni >= 0) needed.splice(ni, 1);
                 // Big speed boost — very noticeable each correct letter
-                speed = Math.min(14, speed + 2.5);
-                car.speed = Math.min(14, car.speed + 1.5);
+                speed = Math.min(8.4, speed + 1.5);
+                car.speed = Math.min(8.4, car.speed + 0.9);
               }
             } else {
               // Hit red — reset ALL collected progress + speed back to base
@@ -623,8 +623,8 @@ function App(){
                 collected = "";
                 needed.length = 0;
                 needed.push(...word.split(""));
-                speed = 2;
-                car.speed = 5;
+                speed = 1.2;
+                car.speed = 3;
               }
               slowTimer = 90;
             }
